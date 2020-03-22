@@ -51,10 +51,10 @@ services:
     image: rabbitmq:3-management
     restart: always
     ports:
-     - 127.0.0.1:5672:5672   # The broker
-     - 127.0.0.1:15672:15672 # Web UI
+    - 127.0.0.1:5672:5672   # The broker
+    - 127.0.0.1:15672:15672 # Web UI
     labels:
-     - "com.centurylinklabs.watchtower.enable=true"
+    - "com.centurylinklabs.watchtower.enable=true"
 
   ################################################################################
   ##                               Lavalink
@@ -99,8 +99,9 @@ services:
     # FredBoat selfhosting website and/or the selfhosters channel (see top of this file for how to get to these places)
     # Once you use the dev branch, you may not be able to go back to stable without deleting your database.
     # To run on (some) arm based machines, prepend the tag with arm64v8-, for example: fredboat/quarterdeck:arm64v8-dev-v1
-    #image: fredboat/quarterdeck:stable-v1
-    image: fredboat/quarterdeck:dev-v1
+    # NOTE: Don't use the dev-v1 build unless otherwise noted as it has breaking changes with the other builds.
+    #image: fredboat/quarterdeck:dev-v1
+    image: fredboat/quarterdeck:stable-v1
     restart: always
     labels:
     - "com.centurylinklabs.watchtower.enable=true"
@@ -114,12 +115,49 @@ services:
 
     # Need a bigger memory size or any other custom JVM args? Edit the list below accordingly
     entrypoint:
-     - java
-     - -Xmx128m
-     - -jar
-     - Quarterdeck.jar
-     - >
-       --spring.application.json={"security": {"admins": [{"name": "docker", "pass": "docker"}]}}
+    - java
+    - -Xmx128m
+    - -jar
+    - Quarterdeck.jar
+    - >
+      --spring.application.json={"security": {"admins": [{"name": "docker", "pass": "docker"}]}}
+
+  ################################################################################
+  ##                               FredBoat
+  ################################################################################
+  bot:
+    # for choosing between stable or dev, read the paragraph above in the Quarterdeck section
+    # IMPORTANT: both quarterdeck and fredboat need to either be on the stable, or on the dev branch
+    # To run on (some) arm based machines, prepend the tag with arm64v8-, for example: fredboat/fredboat:arm64v8-dev-v3
+    image: fredboat/fredboat:dev-v4
+    #build: ./FredBoat #useful alternative for developers
+
+    restart: on-failure:3
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    depends_on:
+      - quarterdeck
+      - sentinel
+      - lavalink
+    ports:
+      - 1356:1356
+    environment:
+      - "SPRING_RABBITMQ_ADDRESSES=amqp://guest:guest@rabbitmq"
+    volumes:
+      - ./fredboat.yml:/opt/FredBoat/fredboat.yml
+      - ./common.yml:/opt/FredBoat/common.yml
+      - ./fredboat_logs:/opt/FredBoat/logs
+      - ./music_persistence:/opt/FredBoat/music_persistence
+      # If your music directory looks like this: /home/user/music/directory/rickroll.mp3 or C:\Users\user\Music\rickroll.mp3
+      # you will be able to play that file with this command: <<play file://music/rickroll.mp3
+      # Linux example:
+      #- /home/your_user_name/music:/opt/FredBoat/music
+      # Windows example:
+      #- C:\Users\your_user_name\Music:/opt/FredBoat/music
+
+    # Need a bigger memory size or any other custom JVM args? uncomment and edit the line below accordingly
+    #entrypoint: java -Xmx256m -jar FredBoat.jar
+
 
   ################################################################################
   ##                         Automatic updates
